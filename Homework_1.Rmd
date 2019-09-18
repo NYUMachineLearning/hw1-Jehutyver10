@@ -1,0 +1,105 @@
+## Homework
+
+```{r}
+data(iris)
+library(ggplot2)
+library(tidyverse)
+library(ggfortify)
+library(fastICA)
+library(cluster)
+
+```
+
+
+0. Subset the Iris dataset to only include `Sepal.Length`, `Sepal.Width`, `Petal.Length`, and `Petal.Width`. 
+```{r}
+cleanData = iris[1:4]
+```
+
+1. Write out the Kmeans algorithm by hand, and run two iterations of it. 
+```{r}
+#Sample Data to initialize
+set.seed(0)
+centroids = sample(cleanData)[1:3,]
+#Assign clusters based on distance
+for(h in 1:2){
+  distances = rep(NA, 3)
+  ids = rep(NA, 150)
+  for(i in 1:length(ids)){
+    for(j in 1:length(distances)){
+      distances[j]=dist(rbind(cleanData[i,], centroids[j,]))
+      
+    }
+    ids[i]=which.min(distances)
+  }
+  ##Reassign the clusters
+  for(i in 1:nrow(centroids)){
+    centroids[i,] = colMeans(cleanData[which(ids==i),])
+  }
+}
+```
+2. Run PCA on the Iris dataset. Plot a scatter plot of PC1 vs PC2 and include the percent variance those PCs describe. 
+```{r}
+autoplot(prcomp(cleanData))
+```
+3. Run ICA on the Iris dataset. Plot the independent components as a heatmap.
+
+```{r}
+x = fastICA(cleanData, 3, alg.typ = "parallel", fun = "logcosh", alpha = 1,
+            method = "C", row.norm = FALSE, maxit = 200,
+            tol = 0.0001, verbose = FALSE)
+heatmap(x$S)
+```
+4. Use Kmeans to cluster the Iris data. 
+* Use the silhouette function in the cluster package to find the optimal number of clusters for kmeans for the iris dataset. Then cluster using kmeans clustering. Does the data cluster by species? 
+  * Using this clustering, color the PCA plot according to the clusters.
+
+```{r}
+sil <- function(k) {
+  km <- kmeans(cleanData, centers = k, nstart = 25)
+  ss <- silhouette(km$cluster, dist(cleanData))
+  mean(ss[, 3])
+}
+
+# Compute and plot wss for k = 2 to k = 15
+k = 2:15
+
+# extract avg silhouette for 2-15 clusters
+avgSil= map_dbl(k, sil)
+
+plot(k, avgSil,
+     type = "b", pch = 19, frame = FALSE, 
+     xlab = "Number of clusters K",
+     ylab = "Average Silhouettes")
+
+km <- kmeans(cleanData, centers = 2, nstart = 25)
+
+autoplot(prcomp(cleanData),data=iris, colour=km$cluster)
+```
+There are 2 clusters. The data do not cluster by species, as there are 3 species total.
+
+5. Use hierarchical clustering to cluster the Iris data.
+
+* Try two different linkage types, and two different distance metrics. 
+* For one linkage type and one distance metric, try two different cut points. 
+* Using this clustering, color the PCA plot according to the clusters. (6  plots in total)
+
+```{r}
+
+e_dist = dist(cleanData, method = "euclidean")
+m_dist = dist(cleanData, method = "manhattan")
+
+e_tree_avg = hclust(e_dist, method="average")
+e_tree_cen = hclust(e_dist, method="centroid")
+m_tree_avg = hclust(m_dist, method="average")
+m_tree_cen = hclust(m_dist, method="centroid")
+e_tree_cen_k2 = cutree(e_tree_cen, k=2)
+e_tree_cen_k3 = cutree(e_tree_cen, k=3)
+
+plot(e_tree_avg)
+plot(e_tree_cen)
+plot(m_tree_avg)
+plot(m_tree_cen)
+autoplot(prcomp(cleanData), col=e_tree_cen_k2)
+autoplot(prcomp(cleanData), col=e_tree_cen_k3)
+```
